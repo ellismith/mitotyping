@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mitotyping Explorer — U01 Macaque Brain Aging</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f2;color:#2c2c2a;font-size:13px}
+header{background:white;border-bottom:1px solid #e0e0d8;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+header h1{font-size:15px;font-weight:500}
+.sub{font-size:11px;color:#888;margin-top:2px}
+.hstats{display:flex;gap:14px}
+.hs{text-align:center;font-size:11px;color:#888}
+.hs b{display:block;font-size:17px;font-weight:500;color:#2c2c2a}
+.tabs{display:flex;gap:0;border-bottom:1px solid #e0e0d8;background:white;padding:0 18px}
+.tab{padding:8px 16px;font-size:12px;cursor:pointer;border-bottom:2px solid transparent;color:#888;font-weight:500}
+.tab.on{color:#3358d4;border-bottom-color:#3358d4}
+.tab-content{display:none;height:calc(100vh - 90px)}
+.tab-content.on{display:flex}
+.sidebar{width:200px;flex-shrink:0;background:white;border-right:1px solid #e0e0d8;padding:10px;display:flex;flex-direction:column;gap:9px;overflow-y:auto}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.main-top{flex:1;overflow:auto;padding:10px}
+.bottom{border-top:1px solid #e0e0d8;display:flex;height:155px;flex-shrink:0;background:white}
+.panel{flex:1;padding:8px 10px;overflow-y:auto;border-right:1px solid #e0e0d8;font-size:11px}
+.panel:last-child{border-right:none}
+.ptitle{font-size:10px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px}
+.cl{font-size:10px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px}
+.cg{display:flex;flex-direction:column}
+.tr{display:flex;flex-wrap:wrap;gap:3px}
+.tog{padding:2px 7px;border-radius:6px;border:1px solid #ddd;font-size:10px;cursor:pointer;background:#fafaf8;color:#666;transition:all 0.1s}
+.tog.on{background:#eef3ff;color:#3358d4;border-color:#b3c6ff;font-weight:500}
+.tog:disabled{opacity:0.4;cursor:not-allowed}
+hr{border:none;border-top:1px solid #e8e8e4;margin:2px 0}
+select,input[type=text]{font-size:11px;width:100%;padding:4px 6px;border:1px solid #ddd;border-radius:6px;background:white}
+input[type=range]{width:100%}
+.sr{display:flex;align-items:center;gap:5px}
+.sv{font-size:11px;min-width:34px;color:#2c2c2a;font-weight:500}
+canvas{display:block}
+#tooltip{position:fixed;background:white;border:1px solid #ddd;color:#2c2c2a;padding:6px 10px;border-radius:6px;font-size:11px;pointer-events:none;display:none;z-index:100;line-height:1.5;max-width:220px;box-shadow:0 2px 8px rgba(0,0,0,0.12)}
+.legend-row{display:flex;gap:8px;margin-top:5px;align-items:center;font-size:10px;color:#888}
+.grad{height:8px;border-radius:3px;width:70px}
+.pr{display:flex;justify-content:space-between;margin-bottom:2px}
+.pk{color:#888;min-width:85px;font-size:10px}
+.pv{font-size:10px;color:#2c2c2a;text-align:right;word-break:break-word;max-width:120px}
+.save-row{display:flex;gap:4px;margin-top:5px}
+.save-row input{flex:1;font-size:10px}
+.sbtn{padding:3px 8px;font-size:10px;cursor:pointer;border-radius:6px;border:1px solid #b3c6ff;background:#eef3ff;color:#3358d4;white-space:nowrap}
+.mono{font-family:monospace;font-size:9px;color:#888;word-break:break-all;margin:2px 0 5px;line-height:1.4}
+.stat-row{display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap}
+.stat{background:#f5f5f2;border-radius:6px;padding:3px 7px;font-size:10px;color:#888}
+.stat b{display:inline;font-weight:500;color:#2c2c2a;margin-right:3px}
+.hint{font-size:10px;color:#aaa;font-style:italic;margin-top:2px}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.summary-card{background:white;border-radius:8px;padding:12px;border-top:3px solid #3498db;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+.summary-card h3{font-size:12px;font-weight:500;margin-bottom:4px}
+.summary-card .n{font-size:24px;font-weight:500;color:#3498db}
+.summary-card .sub{font-size:11px;color:#888;margin-top:2px}
+.summary-card .paths{font-size:10px;margin-top:6px;line-height:1.5}
+.up{color:#c0392b}.down{color:#2980b9}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🧬 Mitotyping Explorer</h1>
+    <div class="sub">U01 Macaque Brain Aging — mitochondrial pathway prioritization</div>
+  </div>
+  <div class="hstats">
+    <div class="hs"><b>__N_CELL_TYPES__</b>cell types</div>
+    <div class="hs"><b>__N_REGIONS__</b>regions</div>
+    <div class="hs"><b>__N_PATHWAYS__</b>pathways</div>
+    <div class="hs"><b>__N_SIG__</b>sig hits</div>
+    <div class="hs"><b>__N_ANIMALS__</b>animals</div>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab on" data-tab="heatmap">Heatmap</div>
+  <div class="tab" data-tab="aging">Aging pathways</div>
+  <div class="tab" data-tab="summary">Summary</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ TAB 1: HEATMAP -->
+<div class="tab-content on" id="tab-heatmap">
+<div class="sidebar">
+  <div class="cg"><div class="cl">Cell type (h5ad)</div>
+    <select id="sel-h5ad">
+      <option value="all">All cell types</option>
+      __CT_OPTIONS__
+    </select>
+  </div>
+  <div class="cg"><div class="cl">View</div>
+    <div class="tr">
+      <button class="tog on" data-k="view" data-v="avg">Average</button>
+      <button class="tog" data-k="view" data-v="animal">Per animal</button>
+      <button class="tog" data-k="view" data-v="louvain">Per louvain</button>
+    </div>
+    <div class="hint" id="view-hint">select one cell type for per-animal/louvain</div>
+  </div>
+  <hr>
+  <div class="cg"><div class="cl">Mode</div>
+    <div class="tr">
+      <button class="tog on" data-k="mode" data-v="mitopps">mitoPPS</button>
+      <button class="tog" data-k="mode" data-v="age">Age effects</button>
+    </div>
+  </div>
+  <div class="cg" id="cols-group"><div class="cl">Columns (avg only)</div>
+    <div class="tr">
+      <button class="tog on" data-k="cols" data-v="celltype">Cell type</button>
+      <button class="tog" data-k="cols" data-v="region">Region</button>
+    </div>
+  </div>
+  <div class="cg"><div class="cl">Pathway level</div>
+    <div class="tr">
+      <button class="tog" data-k="level" data-v="L1">L1</button>
+      <button class="tog" data-k="level" data-v="L2">L2</button>
+      <button class="tog on" data-k="level" data-v="L3">L3</button>
+    </div>
+  </div>
+  <div class="cg"><div class="cl">Filter L1</div>
+    <select id="sel-l1"><option value="">All L1</option>__L1_OPTIONS__</select>
+  </div>
+  <div class="cg"><div class="cl">Filter L2</div>
+    <select id="sel-l2"><option value="">All L2</option></select>
+  </div>
+  <div class="cg"><div class="cl">Filter region</div>
+    <select id="sel-reg"><option value="">All regions</option>__REG_OPTIONS__</select>
+  </div>
+  <div class="cg"><div class="cl">Sig only (age)</div>
+    <div class="tr">
+      <button class="tog on" data-k="sigonly" data-v="true">Yes</button>
+      <button class="tog" data-k="sigonly" data-v="false">No</button>
+    </div>
+  </div>
+  <hr>
+  <div class="cg"><div class="cl">FDR threshold</div>
+    <div class="sr"><input type="range" id="fdr-sl" min="1" max="20" value="5" step="1">
+    <span class="sv" id="fdr-v">0.05</span></div>
+  </div>
+  <div class="cg"><div class="cl">Color scale max</div>
+    <div class="tr">
+      <button class="tog on" data-k="vmax" data-v="auto">Auto</button>
+      <button class="tog" data-k="vmax" data-v="0.03">0.03</button>
+      <button class="tog" data-k="vmax" data-v="0.01">0.01</button>
+    </div>
+  </div>
+  <div class="cg"><div class="cl">Colormap</div>
+    <select id="cmap-sel">
+      <option value="viridis">Viridis</option>
+      <option value="coolwarm" selected>Cool-warm</option>
+      <option value="plasma">Plasma</option>
+      <option value="blues">Blues</option>
+      <option value="rdbu">RdBu</option>
+    </select>
+  </div>
+  <div class="cg"><div class="cl">Font size</div>
+    <div class="sr"><input type="range" id="fs-sl" min="7" max="14" value="9" step="1">
+    <span class="sv" id="fs-v">9px</span></div>
+  </div>
+  <div class="cg"><div class="cl">Cell size</div>
+    <div class="sr"><input type="range" id="cs-sl" min="14" max="60" value="26" step="2">
+    <span class="sv" id="cs-v">26px</span></div>
+  </div>
+  <div class="cg"><div class="cl">Show values</div>
+    <div class="tr">
+      <button class="tog" data-k="showvals" data-v="true">Yes</button>
+      <button class="tog on" data-k="showvals" data-v="false">No</button>
+    </div>
+  </div>
+</div>
+<div class="main">
+  <div class="main-top">
+    <div class="stat-row" id="hm-stats"></div>
+    <div style="overflow:auto"><canvas id="hm"></canvas></div>
+    <div class="legend-row" id="hm-legend"></div>
+  </div>
+  <div class="bottom">
+    <div class="panel"><div class="ptitle">Parameters</div><div id="hm-params"></div></div>
+    <div class="panel"><div class="ptitle">Script</div><div id="hm-script"></div></div>
+    <div class="panel"><div class="ptitle">Save figure</div><div id="hm-save"></div></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ TAB 2: AGING PATHWAYS -->
+<div class="tab-content" id="tab-aging">
+<div class="sidebar">
+  <div class="cg"><div class="cl">Cell type</div>
+    <select id="ag-ct">
+      __CT_OPTIONS__
+    </select>
+  </div>
+  <div class="cg"><div class="cl">Filter region</div>
+    <select id="ag-reg"><option value="">All regions</option>__REG_OPTIONS__</select>
+  </div>
+  <hr>
+  <div class="cg"><div class="cl">FDR threshold</div>
+    <div class="sr"><input type="range" id="ag-fdr-sl" min="1" max="20" value="5" step="1">
+    <span class="sv" id="ag-fdr-v">0.05</span></div>
+  </div>
+  <div class="cg"><div class="cl">Top N pathways</div>
+    <div class="sr"><input type="range" id="ag-topn-sl" min="5" max="30" value="10" step="5">
+    <span class="sv" id="ag-topn-v">10</span></div>
+  </div>
+  <div class="cg"><div class="cl">Cell size</div>
+    <div class="sr"><input type="range" id="ag-cs-sl" min="14" max="50" value="22" step="2">
+    <span class="sv" id="ag-cs-v">22px</span></div>
+  </div>
+  <div class="cg"><div class="cl">Font size</div>
+    <div class="sr"><input type="range" id="ag-fs-sl" min="7" max="14" value="9" step="1">
+    <span class="sv" id="ag-fs-v">9px</span></div>
+  </div>
+  <hr>
+  <div class="cg"><div class="cl">Show scatter plots</div>
+    <div class="tr">
+      <button class="tog on" data-k2="agscatter" data-v="true">Yes</button>
+      <button class="tog" data-k2="agscatter" data-v="false">No</button>
+    </div>
+  </div>
+</div>
+<div class="main">
+  <div class="main-top" style="overflow:auto">
+    <div class="stat-row" id="ag-stats"></div>
+    <div style="overflow:auto"><canvas id="ag-hm"></canvas></div>
+    <div id="ag-scatter-wrap" style="margin-top:16px;overflow:auto"><canvas id="ag-scatter"></canvas></div>
+  </div>
+  <div class="bottom">
+    <div class="panel"><div class="ptitle">Parameters</div><div id="ag-params"></div></div>
+    <div class="panel"><div class="ptitle">Script</div><div id="ag-script"></div></div>
+    <div class="panel"><div class="ptitle">Save</div><div id="ag-save"></div></div>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ TAB 3: SUMMARY -->
+<div class="tab-content" id="tab-summary">
+<div class="sidebar">
+  <div class="cg"><div class="cl">FDR threshold</div>
+    <div class="sr"><input type="range" id="sm-fdr-sl" min="1" max="20" value="5" step="1">
+    <span class="sv" id="sm-fdr-v">0.05</span></div>
+  </div>
+  <div class="cg"><div class="cl">Show all cell types</div>
+    <div class="tr">
+      <button class="tog on" data-k2="smallct" data-v="true">Yes</button>
+      <button class="tog" data-k2="smallct" data-v="false">Sig only</button>
+    </div>
+  </div>
+  <div class="cg"><div class="cl">Bar size</div>
+    <div class="sr"><input type="range" id="sm-h-sl" min="20" max="50" value="30" step="2">
+    <span class="sv" id="sm-h-v">30px</span></div>
+  </div>
+  <hr>
+  <div class="cg"><div class="cl">Consistency min frac</div>
+    <div class="sr"><input type="range" id="sm-mf-sl" min="0" max="100" value="0" step="10">
+    <span class="sv" id="sm-mf-v">0.0</span></div>
+  </div>
+  <div class="cg"><div class="cl">Consistency cell size</div>
+    <div class="sr"><input type="range" id="sm-cs-sl" min="14" max="50" value="24" step="2">
+    <span class="sv" id="sm-cs-v">24px</span></div>
+  </div>
+</div>
+<div class="main">
+  <div class="main-top" style="overflow:auto;display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+    <div>
+      <div style="font-size:12px;font-weight:500;margin-bottom:8px;color:#2c2c2a">Direction summary</div>
+      <div class="summary-grid" id="sm-cards"></div>
+      <canvas id="sm-dir"></canvas>
+    </div>
+    <div style="flex:1;min-width:400px">
+      <div style="font-size:12px;font-weight:500;margin-bottom:8px;color:#2c2c2a">Pathway consistency across regions</div>
+      <div style="overflow:auto"><canvas id="sm-cons"></canvas></div>
+    </div>
+  </div>
+  <div class="bottom">
+    <div class="panel"><div class="ptitle">Summary stats</div><div id="sm-stats"></div></div>
+    <div class="panel"><div class="ptitle">Top findings</div><div id="sm-findings"></div></div>
+    <div class="panel"><div class="ptitle">Script</div><div id="sm-script"></div></div>
+  </div>
+</div>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+// ── injected data ─────────────────────────────────────────────────────────────
+const MITOPPS_AVG    = __MITOPPS_AVG_JSON__;
+const MITOPPS_ANIMAL = __MITOPPS_ANIMAL_JSON__;
+const MITOPPS_LOUVAIN= __MITOPPS_LOUVAIN_JSON__;
+const ANIMAL_ORDER   = __ANIMAL_ORDER_JSON__;
+const ANIMAL_AGES    = __ANIMAL_AGES_JSON__;
+const LOUVAIN_ORDER  = __LOUVAIN_ORDER_JSON__;
+const AGE            = __AGE_JSON__;
+const N_ANIM         = __N_ANIM_JSON__;
+const PW_TO_L1       = __PW_TO_L1_JSON__;
+const PW_TO_L2       = __PW_TO_L2_JSON__;
+const L2_BY_L1       = __L2_BY_L1_JSON__;
+const CT_ALL         = __CT_JSON__;
+const REGS           = __REG_JSON__;
+const PW_L3          = __PW_JSON__;
+const PW_L1          = __L1_CATS_JSON__;
+const PW_L2          = __PW_L2_JSON__;
+const SCRIPT_PATH    = "__SCRIPT_PATH__";
+const RESULTS_PATH   = "__RESULTS_PATH__";
+const FIGURES_PATH   = "__FIGURES_PATH__";
+
+// ── tab switching ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+    document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('on'));
+    t.classList.add('on');
+    document.getElementById('tab-'+t.dataset.tab).classList.add('on');
+    if (t.dataset.tab === 'aging') drawAging();
+    if (t.dataset.tab === 'summary') drawSummary();
+  });
+});
+
+// ── shared state ──────────────────────────────────────────────────────────────
+const S = {
+  mode:'mitopps', view:'avg', cols:'celltype', level:'L3', sigonly:'true',
+  h5ad:'all', filterReg:'', filterL1:'', filterL2:'',
+  fdr:0.05, vmax:'auto', fs:9, cs:26, cmap:'coolwarm', showvals:'false',
+  agCT: CT_ALL[0], agReg:'', agFdr:0.05, agTopN:10, agCs:22, agFs:9, agScatter:'true',
+  smFdr:0.05, smAllCT:'true', smH:30, smMinFrac:0, smCs:24,
+};
+
+// ── colormap ──────────────────────────────────────────────────────────────────
+function cfn(t, cm) {
+  t = Math.max(0, Math.min(1, t));
+  if (cm==='viridis'){const s=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];const i=Math.min(Math.floor(t*4),3);const f=t*4-i;const a=s[i],b=s[i+1];return`rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`;}
+  if (cm==='plasma'){const s=[[13,8,135],[126,3,168],[204,71,120],[248,149,64],[240,249,33]];const i=Math.min(Math.floor(t*4),3);const f=t*4-i;const a=s[i],b=s[i+1];return`rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`;}
+  if (cm==='blues') return`rgb(${Math.round(247-t*190)},${Math.round(251-t*185)},${Math.round(255-t*120)})`;
+  if (t<0.5){const u=t*2;return`rgb(${Math.round(33+u*222)},${Math.round(102+u*153)},${Math.round(172+u*83)})`;}
+  const u=(t-0.5)*2;return`rgb(${Math.round(255-u*40)},${Math.round(255-u*207)},${Math.round(255-u*216)})`;
+}
+
+// ── pathway helpers ───────────────────────────────────────────────────────────
+function getL1(pw){if(S.level==='L1')return pw;if(S.level==='L2'){for(const[l1,l2s]of Object.entries(L2_BY_L1)){if(l2s.includes(pw))return l1;}return'';}return PW_TO_L1[pw]||'';}
+function getL2(pw){return PW_TO_L2[pw]||'';}
+function getPWs(){
+  let pws=S.level==='L1'?PW_L1:S.level==='L2'?PW_L2:PW_L3;
+  if(S.filterL1)pws=pws.filter(pw=>getL1(pw)===S.filterL1||pw===S.filterL1);
+  if(S.filterL2)pws=pws.filter(pw=>getL2(pw)===S.filterL2||pw===S.filterL2);
+  return pws;
+}
+
+function updateL2(){
+  const sel=document.getElementById('sel-l2');
+  sel.innerHTML='<option value="">All L2</option>';
+  (S.filterL1?L2_BY_L1[S.filterL1]||[]:[]).forEach(l2=>{const o=document.createElement('option');o.value=o.textContent=l2;sel.appendChild(o);});
+  S.filterL2='';
+}
+
+function updateViewUI(){
+  const oneCT=S.h5ad!=='all';
+  document.getElementById('view-hint').textContent=oneCT?'':'select one cell type for per-animal/louvain';
+  document.querySelectorAll('.tog[data-k="view"]').forEach(b=>{
+    b.disabled=!oneCT&&(b.dataset.v==='animal'||b.dataset.v==='louvain');
+  });
+  document.getElementById('cols-group').style.opacity=S.view==='avg'?'1':'0.4';
+}
+
+function buildTitle(){
+  const p=[];
+  if(S.h5ad!=='all')p.push(S.h5ad);
+  if(S.view==='animal')p.push('per animal');
+  if(S.view==='louvain')p.push('per louvain');
+  if(S.filterReg)p.push(S.filterReg);
+  if(S.filterL1)p.push(S.filterL1);
+  if(S.filterL2)p.push(S.filterL2);
+  p.push(S.mode==='mitopps'?'mitoPPS':'age effects');
+  p.push(`level ${S.level}`);
+  if(S.mode==='age')p.push(`FDR<${S.fdr.toFixed(2)}`);
+  if(S.vmax!=='auto')p.push(`vmax=${S.vmax}`);
+  return p.join(' | ');
+}
+function buildFname(prefix,ext){return(prefix||buildTitle()).replace(/[^a-zA-Z0-9]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'')+(ext||'.png');}
+
+function getNAnim(){
+  const cts=S.h5ad==='all'?CT_ALL:[S.h5ad];
+  const regs=S.filterReg?[S.filterReg]:REGS;
+  const all=[];
+  cts.forEach(ct=>regs.forEach(reg=>{const n=(N_ANIM[ct]||{})[reg];if(n)all.push(n);}));
+  if(!all.length)return'n/a';
+  const mn=Math.min(...all),mx=Math.max(...all);
+  return mn===mx?`${mn}`:`${mn}–${mx}`;
+}
+
+function getColsAndVals(pw){
+  const ct=S.h5ad,regs=S.filterReg?[S.filterReg]:REGS;
+  if(S.view==='animal'&&ct!=='all'){
+    const animals=ANIMAL_ORDER[ct]||[];
+    return{cols:animals.map(a=>`${a} (${(ANIMAL_AGES[ct]||{})[a]?.toFixed(1)}y)`),vals:animals.map(a=>(MITOPPS_ANIMAL[ct]||{})[a]?.[pw]??null),fdrs:animals.map(()=>1)};
+  }
+  if(S.view==='louvain'&&ct!=='all'){
+    const order=(LOUVAIN_ORDER[ct]||[]).filter(k=>!S.filterReg||k.split(',')[1]===S.filterReg);
+    if(S.mode==='mitopps'){
+      return{cols:order,vals:order.map(k=>(MITOPPS_LOUVAIN[ct]||{})[k]?.[pw]??null),fdrs:order.map(()=>1)};
+    } else {
+      // age mode: use region-level beta/fdr (averaged across louvains visually)
+      return{
+        cols:order,
+        vals:order.map(k=>{const reg=k.split(',')[1];const d=AGE[ct]?.[reg]?.[pw];return d?d.b:null;}),
+        fdrs:order.map(k=>{const reg=k.split(',')[1];const d=AGE[ct]?.[reg]?.[pw];return d?d.f:1;})
+      };
+    }
+  }
+  const activeCTs=ct==='all'?CT_ALL:[ct];
+  const allCols=S.cols==='celltype'?activeCTs:regs;
+  const allRows=S.cols==='celltype'?regs:activeCTs;
+  const vals=[],fdrs=[];
+  allCols.forEach(col=>{
+    let sum=0,cnt=0,mf=1;
+    allRows.forEach(row=>{
+      const ctK=S.cols==='celltype'?col:row,regK=S.cols==='celltype'?row:col;
+      if(!activeCTs.includes(ctK))return;
+      if(S.mode==='mitopps'){const v=MITOPPS_AVG[ctK]?.[regK]?.[pw];if(v!==undefined){sum+=v;cnt++;}}
+      else{const d=AGE[ctK]?.[regK]?.[pw];if(d){sum+=d.b;cnt++;if(d.f<mf)mf=d.f;}}
+    });
+    vals.push(cnt?sum/cnt:null);fdrs.push(mf);
+  });
+  return{cols:allCols,vals,fdrs};
+}
+
+// ─────────────────────────────────────────── TAB 1: HEATMAP
+let lastMat=null;
+function drawHeatmap(){
+  updateViewUI();
+  const pws=getPWs();
+  const mat=[],sigs=[],rowLabels=[];
+  let allCols=[];
+  pws.forEach(pw=>{
+    const{cols,vals,fdrs}=getColsAndVals(pw);
+    if(!allCols.length)allCols=cols;
+    const sig=fdrs.some(f=>f<S.fdr);
+    if(S.mode==='age'&&S.sigonly==='true'&&!sig)return;
+    mat.push(vals);sigs.push(fdrs.map(f=>f<S.fdr));rowLabels.push(pw);
+  });
+
+  const canvas=document.getElementById('hm');
+  const ctx=canvas.getContext('2d');
+  const cs=S.cs,titleH=22;
+  ctx.font=`${S.fs}px sans-serif`;
+  const maxLW=rowLabels.reduce((m,p)=>Math.max(m,ctx.measureText(p).width),0);
+  const labelW=Math.max(100,Math.min(300,maxLW+14));
+  ctx.font=`500 ${S.fs}px sans-serif`;
+  const maxCW=allCols.reduce((m,c)=>Math.max(m,ctx.measureText(c).width),0);
+  const labelH=Math.min(140,Math.max(50,maxCW+12));
+  const W=labelW+allCols.length*cs,H=titleH+labelH+rowLabels.length*cs+10;
+  canvas.width=W;canvas.height=H;ctx.clearRect(0,0,W,H);
+
+  const title=buildTitle();
+  ctx.fillStyle='#2c2c2a';ctx.font=`500 ${S.fs+1}px sans-serif`;ctx.textAlign='left';
+  ctx.fillText(title.length>90?title.slice(0,89)+'…':title,labelW,14);
+
+  allCols.forEach((col,j)=>{
+    ctx.save();ctx.translate(labelW+j*cs+cs/2,titleH+labelH-4);ctx.rotate(-Math.PI/2);
+    ctx.fillStyle='#2c2c2a';ctx.font=`500 ${S.fs}px sans-serif`;ctx.textAlign='left';
+    ctx.fillText(col,0,0);ctx.restore();
+  });
+
+  if(!rowLabels.length){
+    ctx.fillStyle='#aaa';ctx.font=`${S.fs}px sans-serif`;ctx.textAlign='left';
+    ctx.fillText('no pathways — try FDR > 0.05 or sig-only = No',labelW,titleH+labelH+20);
+    updateHeatmapPanels(0,allCols.length,0,0);return;
+  }
+
+  const allVals=mat.flat().filter(v=>v!==null);
+  let vlo=Math.min(...allVals),vhi=Math.max(...allVals);
+  if(S.mode==='age'&&S.vmax!=='auto'){const vm=parseFloat(S.vmax);vlo=-vm;vhi=vm;}
+
+  rowLabels.forEach((pw,i)=>{
+    ctx.fillStyle='#2c2c2a';ctx.font=`${S.fs}px sans-serif`;ctx.textAlign='right';
+    ctx.fillText(pw.length>44?pw.slice(0,43)+'…':pw,labelW-5,titleH+labelH+i*cs+cs*0.68);
+    allCols.forEach((col,j)=>{
+      const v=mat[i][j],sig=sigs[i][j];
+      const t=v===null?0.5:(v-vlo)/(vhi-vlo||1);
+      ctx.fillStyle=v===null?'#e0ddd8':cfn(t,S.cmap);
+      ctx.fillRect(labelW+j*cs,titleH+labelH+i*cs,cs-1,cs-1);
+      if(S.mode==='age'&&sig&&cs>=14){ctx.fillStyle='rgba(0,0,0,0.85)';ctx.beginPath();ctx.arc(labelW+j*cs+cs/2,titleH+labelH+i*cs+cs/2,Math.max(1.5,cs*0.09),0,Math.PI*2);ctx.fill();}
+      if(S.showvals==='true'&&cs>=22&&v!==null){ctx.fillStyle=t>0.6?'rgba(255,255,255,0.9)':'rgba(0,0,0,0.8)';ctx.font=`${Math.max(7,S.fs-1)}px sans-serif`;ctx.textAlign='center';ctx.fillText(v.toFixed(2),labelW+j*cs+cs/2,titleH+labelH+i*cs+cs*0.68);}
+    });
+  });
+
+  lastMat={mat,sigs,rows:rowLabels,cols:allCols,labelW,labelH:titleH+labelH,cs};
+  const nSig=sigs.flat().filter(Boolean).length,nTests=rowLabels.length*allCols.length;
+  document.getElementById('hm-stats').innerHTML=`<div class="stat"><b>${rowLabels.length}</b>pathways (${S.level})</div><div class="stat"><b>${allCols.length}</b>columns</div>${S.mode==='age'?`<div class="stat"><b>${nSig}</b>sig / ${nTests}</div>`:''}`;
+  const leg=document.getElementById('hm-legend');
+  const vmaxLabel=S.vmax==='auto'?vhi.toFixed(3):S.vmax;
+  if(S.mode==='mitopps'){
+    leg.innerHTML=`<span>${vlo.toFixed(2)}</span><div class="grad" style="background:linear-gradient(to right,rgb(68,1,84),rgb(59,82,139),rgb(33,145,140),rgb(94,201,98),rgb(253,231,37))"></div><span>${vhi.toFixed(2)}</span><span style="margin-left:8px;color:#aaa">mitoPPS</span>`;
+  } else {
+    const sigDot = cs>=14 ? '<span style="margin-left:6px">● FDR sig</span>' : '';
+    leg.innerHTML=`<span>-${vmaxLabel}</span><div class="grad" style="background:linear-gradient(to right,rgb(33,102,172),white,rgb(215,48,39))"></div><span>+${vmaxLabel}</span><span style="margin-left:8px;color:#aaa">beta (age)</span>${sigDot}`;
+  }
+  updateHeatmapPanels(rowLabels.length,allCols.length,nSig,nTests);
+}
+
+function updateHeatmapPanels(nRows,nCols,nSig,nTests){
+  const fname=buildFname();const fpath=FIGURES_PATH+fname;
+  const params=[['Mode',S.mode],['Dataset',S.h5ad==='all'?'All':S.h5ad],['View',S.view],['Level',`${S.level} (${nRows})`]];
+  if(S.filterL1)params.push(['L1',S.filterL1]);if(S.filterL2)params.push(['L2',S.filterL2]);
+  if(S.filterReg)params.push(['Region',S.filterReg]);
+  if(S.mode==='age'){params.push(['FDR',S.fdr.toFixed(2)],['Tests/sig',`${nTests}/${nSig}`]);}
+  params.push(['N animals',getNAnim()],['Colormap',S.cmap]);
+  document.getElementById('hm-params').innerHTML=params.map(([k,v])=>`<div class="pr"><span class="pk">${k}</span><span class="pv">${v}</span></div>`).join('');
+  document.getElementById('hm-script').innerHTML=`<div class="pr"><span class="pk">Script</span></div><div class="mono">${SCRIPT_PATH}</div><div class="pr"><span class="pk">Call</span></div><div class="mono">mp.plot_mitotyping(\n  mode="${S.mode}", level="${S.level}",\n  ${S.view==='animal'?'per_animal=True,\n  ':S.view==='louvain'?'average_louvains=False,\n  ':'average_louvains=True,\n  '}fdr_threshold=${S.fdr.toFixed(2)},\n  save=True\n)</div>`;
+  document.getElementById('hm-save').innerHTML=`<div class="mono">${fpath}</div><div class="save-row"><input type="text" id="hm-rename" value="${fname}"><button class="sbtn" onclick="doSave('hm')">Copy cmd</button></div><div id="hm-save-msg" style="font-size:10px;color:#888;margin-top:4px"></div>`;
+}
+
+// ─────────────────────────────────────────── TAB 2: AGING PATHWAYS
+function drawAging(){
+  const ct=S.agCT;
+  const regs=S.agReg?[S.agReg]:REGS;
+
+  // get all age results for this cell type
+  const res={};
+  PW_L3.forEach(pw=>{
+    let sumB=0,minF=1,cnt=0;
+    regs.forEach(reg=>{
+      const d=AGE[ct]?.[reg]?.[pw];
+      if(d){sumB+=d.b;cnt++;if(d.f<minF)minF=d.f;}
+    });
+    if(cnt)res[pw]={beta:sumB/cnt,fdr:minF};
+  });
+
+  // select pathways
+  const sig=Object.entries(res).filter(([pw,v])=>v.fdr<S.agFdr).sort((a,b)=>a[1].beta-b[1].beta);
+  let selected;
+  if(sig.length>0){
+    selected=sig;
+  }else{
+    const sorted=Object.entries(res).sort((a,b)=>a[1].beta-b[1].beta);
+    selected=[...sorted.slice(0,S.agTopN),...sorted.slice(-S.agTopN)];
+  }
+  const pwList=selected.map(([pw])=>pw);
+
+  // get per-animal data
+  const animals=(ANIMAL_ORDER[ct]||[]);
+  const mat=[];
+  pwList.forEach(pw=>{
+    mat.push(animals.map(a=>(MITOPPS_ANIMAL[ct]||{})[a]?.[pw]??null));
+  });
+
+  // draw heatmap
+  const canvas=document.getElementById('ag-hm');
+  const ctx=canvas.getContext('2d');
+  const cs=S.agCs,fs=S.agFs,titleH=22;
+  ctx.font=`${fs}px sans-serif`;
+  const maxLW=pwList.reduce((m,p)=>Math.max(m,ctx.measureText(p).width),0);
+  const labelW=Math.max(120,Math.min(300,maxLW+14));
+  ctx.font=`500 ${fs}px sans-serif`;
+  const maxCW=animals.reduce((m,a)=>Math.max(m,ctx.measureText(`${a} (${(ANIMAL_AGES[ct]||{})[a]?.toFixed(1)}y)`).width),0);
+  const labelH=Math.min(150,Math.max(60,maxCW+12));
+  const W=labelW+animals.length*cs,H=titleH+labelH+pwList.length*cs+10;
+  canvas.width=W;canvas.height=H;ctx.clearRect(0,0,W,H);
+
+  const title=`${ct} — top aging pathways${S.agReg?' | '+S.agReg:''} | FDR<${S.agFdr.toFixed(2)}`;
+  ctx.fillStyle='#2c2c2a';ctx.font=`500 ${fs+1}px sans-serif`;ctx.textAlign='left';
+  ctx.fillText(title,labelW,14);
+
+  // col labels
+  animals.forEach((a,j)=>{
+    const label=`${a} (${(ANIMAL_AGES[ct]||{})[a]?.toFixed(1)}y)`;
+    ctx.save();ctx.translate(labelW+j*cs+cs/2,titleH+labelH-4);ctx.rotate(-Math.PI/2);
+    ctx.fillStyle='#2c2c2a';ctx.font=`${fs}px sans-serif`;ctx.textAlign='left';
+    ctx.fillText(label,0,0);ctx.restore();
+  });
+
+  if(!pwList.length){ctx.fillStyle='#aaa';ctx.font=`${fs}px sans-serif`;ctx.fillText('no data',labelW,titleH+labelH+20);return;}
+
+  const allVals=mat.flat().filter(v=>v!==null);
+  const vMid=1;
+  const vSpan=Math.max(Math.max(...allVals)-1,1-Math.min(...allVals),0.1);
+  const vlo=vMid-vSpan,vhi=vMid+vSpan;
+
+  pwList.forEach((pw,i)=>{
+    const beta=res[pw]?.beta||0,fdr=res[pw]?.fdr||1;
+    const sigMark=fdr<S.agFdr?' ✓':'';
+    const label=`${pw.length>40?pw.slice(0,39)+'…':pw}${sigMark} (β=${beta.toFixed(3)})`;
+    ctx.fillStyle=fdr<S.agFdr?'#c0392b':'#2c2c2a';
+    ctx.font=`${fs}px sans-serif`;ctx.textAlign='right';
+    ctx.fillText(label,labelW-5,titleH+labelH+i*cs+cs*0.68);
+    animals.forEach((a,j)=>{
+      const v=mat[i][j];
+      const t=v===null?0.5:(v-vlo)/(vhi-vlo||1);
+      ctx.fillStyle=v===null?'#e0ddd8':cfn(t,'coolwarm');
+      ctx.fillRect(labelW+j*cs,titleH+labelH+i*cs,cs-1,cs-1);
+    });
+  });
+
+  const nSig=Object.values(res).filter(v=>v.fdr<S.agFdr).length;
+  document.getElementById('ag-stats').innerHTML=`<div class="stat"><b>${ct}</b></div><div class="stat"><b>${nSig}</b>sig pathways (FDR<${S.agFdr.toFixed(2)})</div><div class="stat"><b>${animals.length}</b>animals</div>${sig.length===0?'<div class="stat" style="color:#e67e22">⚠ no sig hits — showing top by effect size</div>':''}`;
+
+  // scatter plots
+  if(S.agScatter==='true'){
+    drawAgingScatter(pwList.slice(0,6),res,ct);
+  }else{
+    const sc=document.getElementById('ag-scatter');
+    sc.width=0;sc.height=0;
+  }
+
+  // panels
+  document.getElementById('ag-params').innerHTML=[
+    ['Cell type',ct],['Region filter',S.agReg||'all'],
+    ['FDR threshold',S.agFdr.toFixed(2)],['Top N',S.agTopN],
+    ['Sig pathways',nSig],['N animals',animals.length],
+  ].map(([k,v])=>`<div class="pr"><span class="pk">${k}</span><span class="pv">${v}</span></div>`).join('');
+  document.getElementById('ag-script').innerHTML=`<div class="mono">${SCRIPT_PATH}</div><div class="mono">mp.plot_aging_pathways(\n  results_df,\n  combined_mitopps,\n  cell_type="${ct}",\n  fdr_threshold=${S.agFdr.toFixed(2)},\n  top_n=${S.agTopN},\n  save=True\n)</div>`;
+  const agFname=`${ct}_aging_pathways.png`;
+  document.getElementById('ag-save').innerHTML=`<div class="mono">${FIGURES_PATH}${agFname}</div><div class="save-row"><input type="text" id="ag-rename" value="${agFname}"><button class="sbtn" onclick="doSave('ag')">Copy cmd</button></div><div id="ag-save-msg" style="font-size:10px;color:#888;margin-top:4px"></div>`;
+}
+
+function drawAgingScatter(pws,res,ct){
+  const animals=ANIMAL_ORDER[ct]||[];
+  const ages=animals.map(a=>(ANIMAL_AGES[ct]||{})[a]||0);
+  const n=pws.length,cols=3,rows=Math.ceil(n/cols);
+  const pw=200,ph=160,pad=10;
+  const canvas=document.getElementById('ag-scatter');
+  const ctx=canvas.getContext('2d');
+  canvas.width=cols*pw+pad;canvas.height=rows*ph+pad;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  pws.forEach((pw_,k)=>{
+    const col=k%cols,row=Math.floor(k/cols);
+    const ox=col*pw+pad,oy=row*ph+pad;
+    const vals=animals.map(a=>(MITOPPS_ANIMAL[ct]||{})[a]?.[pw_]??null);
+    const valid=vals.map((v,i)=>v!==null?{x:ages[i],y:v}:null).filter(Boolean);
+    if(!valid.length)return;
+
+    const xmin=Math.min(...valid.map(p=>p.x)),xmax=Math.max(...valid.map(p=>p.x));
+    const ymin=Math.min(...valid.map(p=>p.y)),ymax=Math.max(...valid.map(p=>p.y));
+    const xr=xmax-xmin||1,yr=ymax-ymin||1;
+    const lpad=35,bpad=30,tpad=30,rpad=10;
+    const iw=pw-lpad-rpad,ih=ph-tpad-bpad;
+    const sx=x=>ox+lpad+(x-xmin)/xr*iw;
+    const sy=y=>oy+tpad+(1-(y-ymin)/yr)*ih;
+
+    // title
+    const beta=res[pw_]?.beta||0,fdr=res[pw_]?.fdr||1;
+    ctx.fillStyle=fdr<S.agFdr?'#c0392b':'#2c2c2a';
+    ctx.font=`500 9px sans-serif`;ctx.textAlign='left';
+    ctx.fillText((pw_.length>28?pw_.slice(0,27)+'…':pw_),ox+lpad,oy+12);
+    ctx.fillStyle='#888';ctx.font='8px sans-serif';
+    ctx.fillText(`β=${beta.toFixed(3)}, FDR=${fdr.toFixed(3)}`,ox+lpad,oy+22);
+
+    // axes
+    ctx.strokeStyle='#ddd';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(ox+lpad,oy+tpad);ctx.lineTo(ox+lpad,oy+tpad+ih);ctx.lineTo(ox+lpad+iw,oy+tpad+ih);ctx.stroke();
+
+    // axis labels
+    ctx.fillStyle='#888';ctx.font='8px sans-serif';ctx.textAlign='center';
+    ctx.fillText('age',ox+lpad+iw/2,oy+ph-4);
+    ctx.save();ctx.translate(ox+10,oy+tpad+ih/2);ctx.rotate(-Math.PI/2);ctx.fillText('mitoPPS',0,0);ctx.restore();
+
+    // regression line
+    const n=valid.length;
+    const xm=valid.reduce((s,p)=>s+p.x,0)/n,ym=valid.reduce((s,p)=>s+p.y,0)/n;
+    const num=valid.reduce((s,p)=>s+(p.x-xm)*(p.y-ym),0);
+    const den=valid.reduce((s,p)=>s+(p.x-xm)**2,0);
+    if(den>0){
+      const slope=num/den,inter=ym-slope*xm;
+      ctx.strokeStyle='#e74c3c';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(sx(xmin),sy(slope*xmin+inter));ctx.lineTo(sx(xmax),sy(slope*xmax+inter));ctx.stroke();
+    }
+
+    // dots
+    valid.forEach(p=>{
+      ctx.fillStyle='#3498db';ctx.beginPath();
+      ctx.arc(sx(p.x),sy(p.y),3,0,Math.PI*2);ctx.fill();
+    });
+  });
+}
+
+// ─────────────────────────────────────────── TAB 3: SUMMARY
+function drawSummary(){
+  const fdr=S.smFdr;
+
+  // compute direction per cell type
+  const direction={};
+  CT_ALL.forEach(ct=>{
+    let nSig=0,nUp=0,nDown=0;
+    PW_L3.forEach(pw=>{
+      REGS.forEach(reg=>{
+        const d=AGE[ct]?.[reg]?.[pw];
+        if(d&&d.f<fdr){nSig++;if(d.b>0)nUp++;else nDown++;}
+      });
+    });
+    direction[ct]={nSig,nUp,nDown};
+  });
+
+  // summary cards
+  const cards=document.getElementById('sm-cards');
+  const sorted=CT_ALL.filter(ct=>S.smAllCT==='true'||direction[ct].nSig>0)
+    .sort((a,b)=>direction[b].nSig-direction[a].nSig);
+  cards.innerHTML=sorted.map(ct=>{
+    const {nSig,nUp,nDown}=direction[ct];
+    return`<div class="summary-card">
+      <h3>${ct}</h3>
+      <div class="n">${nSig}</div>
+      <div class="sub"><span class="up">↑${nUp}</span> · <span class="down">↓${nDown}</span></div>
+    </div>`;
+  }).join('');
+
+  // direction bar chart
+  const barH=S.smH,padL=80,padR=20,padT=10,padB=10;
+  const maxN=Math.max(...sorted.map(ct=>direction[ct].nSig),1);
+  const cw=document.querySelector('#tab-summary .sidebar').nextElementSibling;
+  const chartW=Math.min(350,cw.offsetWidth/2-40)||300;
+  const chartH=padT+sorted.length*barH+padB;
+  const dc=document.getElementById('sm-dir');
+  const dctx=dc.getContext('2d');
+  dc.width=chartW;dc.height=chartH;dctx.clearRect(0,0,chartW,chartH);
+
+  const scale=(chartW-padL-padR)/2/maxN;
+  const midX=padL+(chartW-padL-padR)/2;
+
+  sorted.forEach((ct,i)=>{
+    const {nUp,nDown}=direction[ct];
+    const y=padT+i*barH+barH*0.1;const h=barH*0.8;
+    // up bars (right)
+    dctx.fillStyle='#c0392b';
+    dctx.fillRect(midX,y,nUp*scale,h);
+    // down bars (left)
+    dctx.fillStyle='#2980b9';
+    dctx.fillRect(midX-nDown*scale,y,nDown*scale,h);
+    // label
+    dctx.fillStyle='#2c2c2a';dctx.font=`10px sans-serif`;dctx.textAlign='right';
+    dctx.fillText(ct,padL-4,y+h*0.7);
+  });
+  // center line
+  dctx.strokeStyle='#888';dctx.lineWidth=1;
+  dctx.beginPath();dctx.moveTo(midX,padT);dctx.lineTo(midX,chartH-padB);dctx.stroke();
+
+  // consistency heatmap
+  const cons={};
+  PW_L3.forEach(pw=>{
+    CT_ALL.forEach(ct=>{
+      let nSigReg=0,nReg=0;
+      REGS.forEach(reg=>{
+        const d=AGE[ct]?.[reg]?.[pw];
+        if(d){nReg++;if(d.f<fdr)nSigReg++;}
+      });
+      if(nReg>0){if(!cons[pw])cons[pw]={};cons[pw][ct]=nSigReg/nReg;}
+    });
+  });
+
+  // filter by minFrac
+  const pwsWithSig=PW_L3.filter(pw=>cons[pw]&&CT_ALL.some(ct=>(cons[pw][ct]||0)>=S.smMinFrac));
+  // sort by mean consistency desc
+  pwsWithSig.sort((a,b)=>{
+    const ma=CT_ALL.reduce((s,ct)=>s+(cons[a][ct]||0),0)/CT_ALL.length;
+    const mb=CT_ALL.reduce((s,ct)=>s+(cons[b][ct]||0),0)/CT_ALL.length;
+    return mb-ma;
+  });
+
+  const cs2=S.smCs;
+  const cc=document.getElementById('sm-cons');
+  const cctx=cc.getContext('2d');
+  cctx.font='9px sans-serif';
+  const maxLW2=pwsWithSig.reduce((m,p)=>Math.max(m,cctx.measureText(p).width),0);
+  const lw2=Math.max(100,Math.min(250,maxLW2+10));
+  const lh2=60;
+  cc.width=lw2+CT_ALL.length*cs2;
+  cc.height=lh2+pwsWithSig.length*cs2+10;
+  cctx.clearRect(0,0,cc.width,cc.height);
+
+  CT_ALL.forEach((ct,j)=>{
+    cctx.save();cctx.translate(lw2+j*cs2+cs2/2,lh2-4);cctx.rotate(-Math.PI/2);
+    cctx.fillStyle='#2c2c2a';cctx.font=`9px sans-serif`;cctx.textAlign='left';
+    cctx.fillText(ct,0,0);cctx.restore();
+  });
+
+  pwsWithSig.forEach((pw,i)=>{
+    cctx.fillStyle='#2c2c2a';cctx.font='9px sans-serif';cctx.textAlign='right';
+    cctx.fillText(pw.length>32?pw.slice(0,31)+'…':pw,lw2-4,lh2+i*cs2+cs2*0.68);
+    CT_ALL.forEach((ct,j)=>{
+      const v=(cons[pw]||{})[ct]||0;
+      const r=Math.round(255-v*222),g=Math.round(255-v*110),b=Math.round(255-v*110);
+      cctx.fillStyle=v>0?`rgb(${r},${g},${b})`:'#f0ede8';
+      cctx.fillRect(lw2+j*cs2,lh2+i*cs2,cs2-1,cs2-1);
+      if(cs2>=20&&v>0){
+        cctx.fillStyle=v>0.5?'white':'#2c2c2a';cctx.font='8px sans-serif';cctx.textAlign='center';
+        cctx.fillText(v.toFixed(1),lw2+j*cs2+cs2/2,lh2+i*cs2+cs2*0.68);
+      }
+    });
+  });
+
+  // stats panel
+  const totalSig=CT_ALL.reduce((s,ct)=>s+direction[ct].nSig,0);
+  document.getElementById('sm-stats').innerHTML=[
+    ['FDR threshold',fdr.toFixed(2)],
+    ['Total sig tests',totalSig],
+    ['Cell types with hits',CT_ALL.filter(ct=>direction[ct].nSig>0).length],
+    ['Pathways with hits',pwsWithSig.length],
+  ].map(([k,v])=>`<div class="pr"><span class="pk">${k}</span><span class="pv">${v}</span></div>`).join('');
+
+  // top findings
+  const topHits=[];
+  CT_ALL.forEach(ct=>{
+    PW_L3.forEach(pw=>{
+      REGS.forEach(reg=>{
+        const d=AGE[ct]?.[reg]?.[pw];
+        if(d&&d.f<fdr)topHits.push({ct,pw,reg,beta:d.b,fdr:d.f});
+      });
+    });
+  });
+  topHits.sort((a,b)=>a.fdr-b.fdr);
+  document.getElementById('sm-findings').innerHTML=topHits.slice(0,8).map(h=>
+    `<div class="pr"><span class="pk" style="color:${h.beta>0?'#c0392b':'#2980b9'}">${h.beta>0?'↑':'↓'} ${h.ct}</span><span class="pv">${h.pw} | ${h.reg} | FDR=${h.fdr.toFixed(4)}</span></div>`
+  ).join('');
+
+  document.getElementById('sm-script').innerHTML=`<div class="mono">${SCRIPT_PATH}</div><div class="mono">direction, cons = mp.summarize_mitotyping(\n  results_df,\n  fdr_threshold=${fdr.toFixed(2)}\n)\nmp.plot_direction(direction, save=True)\nmp.plot_consistency(cons, save=True)</div>`;
+}
+
+// ── save ──────────────────────────────────────────────────────────────────────
+function doSave(tab){
+  const inp=document.getElementById(tab+'-rename');
+  const msg=document.getElementById(tab+'-save-msg');
+  if(!inp)return;
+  const fname=inp.value||buildFname();
+  const cmd=`conda run -n mito_env_test python3 -c "\nimport sys; sys.path.insert(0,'/scratch/easmit31/mitotyping')\nimport mitotyping_plots as mp, pandas as pd\ncombined_mitopps = pd.read_csv('${RESULTS_PATH}all_mitopps.csv')\nresults_df = pd.read_csv('${RESULTS_PATH}mitotyping_age_results_clean.csv')\n# see script panel for function call\n"`;
+  navigator.clipboard.writeText(cmd).then(()=>{if(msg)msg.textContent='✓ Copied — paste in terminal';}).catch(()=>{if(msg)msg.textContent='Copy failed';});
+}
+
+// ── tooltip (heatmap tab) ─────────────────────────────────────────────────────
+const hmCanvas=document.getElementById('hm');
+const tip=document.getElementById('tooltip');
+hmCanvas.addEventListener('mousemove',e=>{
+  if(!lastMat)return;
+  const{mat,sigs,rows,cols,labelW,labelH,cs}=lastMat;
+  const r=hmCanvas.getBoundingClientRect();
+  const x=e.clientX-r.left,y=e.clientY-r.top;
+  const j=Math.floor((x-labelW)/cs),i=Math.floor((y-labelH)/cs);
+  if(i>=0&&i<rows.length&&j>=0&&j<cols.length){
+    const v=mat[i]?.[j],sig=sigs[i]?.[j],pw=rows[i],col=cols[j];
+    let html=`<b>${pw}</b><br><span style="color:#888">${getL1(pw)}${getL2(pw)?' › '+getL2(pw):''}</span><br>${col}<br>`;
+    html+=S.mode==='mitopps'?`mitoPPS: <b>${v!==null?v.toFixed(3):'n/a'}</b>`:`β: <b>${v!==null?v.toFixed(4):'n/a'}</b>${sig?' <span style="color:#d73027">✓</span>':''}`;
+    tip.innerHTML=html;tip.style.display='block';
+    tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-10)+'px';
+  }else tip.style.display='none';
+});
+hmCanvas.addEventListener('mouseleave',()=>{tip.style.display='none';});
+
+// ── controls ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tog[data-k]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    if(b.disabled)return;
+    const k=b.dataset.k,v=b.dataset.v;S[k]=v;
+    document.querySelectorAll(`.tog[data-k="${k}"]`).forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');drawHeatmap();
+  });
+});
+document.querySelectorAll('.tog[data-k2]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const k=b.dataset.k2,v=b.dataset.v;S[k]=v;
+    document.querySelectorAll(`.tog[data-k2="${k}"]`).forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    if(k==='agscatter'||k==='smallct'){}; // redrawn by tab
+  });
+});
+
+document.getElementById('sel-h5ad').addEventListener('change',e=>{
+  S.h5ad=e.target.value;
+  if(e.target.value==='all'&&S.view!=='avg'){S.view='avg';document.querySelectorAll('.tog[data-k="view"]').forEach(x=>x.classList.remove('on'));document.querySelector('.tog[data-k="view"][data-v="avg"]').classList.add('on');}
+  drawHeatmap();
+});
+document.getElementById('sel-l1').addEventListener('change',e=>{S.filterL1=e.target.value;updateL2();drawHeatmap();});
+document.getElementById('sel-l2').addEventListener('change',e=>{S.filterL2=e.target.value;drawHeatmap();});
+document.getElementById('sel-reg').addEventListener('change',e=>{S.filterReg=e.target.value;drawHeatmap();});
+document.getElementById('cmap-sel').addEventListener('change',e=>{S.cmap=e.target.value;drawHeatmap();});
+document.getElementById('fdr-sl').addEventListener('input',e=>{S.fdr=parseFloat(e.target.value)/100;document.getElementById('fdr-v').textContent=S.fdr.toFixed(2);drawHeatmap();});
+document.getElementById('fs-sl').addEventListener('input',e=>{S.fs=parseInt(e.target.value);document.getElementById('fs-v').textContent=S.fs+'px';drawHeatmap();});
+document.getElementById('cs-sl').addEventListener('input',e=>{S.cs=parseInt(e.target.value);document.getElementById('cs-v').textContent=S.cs+'px';drawHeatmap();});
+
+// aging tab controls
+document.getElementById('ag-ct').value=CT_ALL[0];
+document.getElementById('ag-ct').addEventListener('change',e=>{S.agCT=e.target.value;drawAging();});
+document.getElementById('ag-reg').addEventListener('change',e=>{S.agReg=e.target.value;drawAging();});
+document.getElementById('ag-fdr-sl').addEventListener('input',e=>{S.agFdr=parseFloat(e.target.value)/100;document.getElementById('ag-fdr-v').textContent=S.agFdr.toFixed(2);drawAging();});
+document.getElementById('ag-topn-sl').addEventListener('input',e=>{S.agTopN=parseInt(e.target.value);document.getElementById('ag-topn-v').textContent=S.agTopN;drawAging();});
+document.getElementById('ag-cs-sl').addEventListener('input',e=>{S.agCs=parseInt(e.target.value);document.getElementById('ag-cs-v').textContent=S.agCs+'px';drawAging();});
+document.getElementById('ag-fs-sl').addEventListener('input',e=>{S.agFs=parseInt(e.target.value);document.getElementById('ag-fs-v').textContent=S.agFs+'px';drawAging();});
+
+// summary tab controls
+document.getElementById('sm-fdr-sl').addEventListener('input',e=>{S.smFdr=parseFloat(e.target.value)/100;document.getElementById('sm-fdr-v').textContent=S.smFdr.toFixed(2);drawSummary();});
+document.getElementById('sm-h-sl').addEventListener('input',e=>{S.smH=parseInt(e.target.value);document.getElementById('sm-h-v').textContent=S.smH+'px';drawSummary();});
+document.getElementById('sm-mf-sl').addEventListener('input',e=>{S.smMinFrac=parseInt(e.target.value)/100;document.getElementById('sm-mf-v').textContent=S.smMinFrac.toFixed(1);drawSummary();});
+document.getElementById('sm-cs-sl').addEventListener('input',e=>{S.smCs=parseInt(e.target.value);document.getElementById('sm-cs-v').textContent=S.smCs+'px';drawSummary();});
+
+drawHeatmap();
+</script>
+</body>
+</html>
