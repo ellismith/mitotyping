@@ -1,19 +1,12 @@
 # Mitotyping Analysis Guide
-### U01 Macaque Brain Aging — mitochondrial pathway prioritization
-
-This guide walks through the full analysis pipeline, explains what each script does,
-where results are saved, and how to use each visualization function. It's written
-for someone who may not be deeply familiar with the code but wants to understand
-the logic and know where to look when things need changing.
-
----
+### Macaque Brain Aging — mitochondrial pathway prioritization
 
 ## What is mitotyping?
 
 Mitochondria aren't just energy factories — they're specialized. Each cell type has
 a distinct **mitotype**: a characteristic pattern of which mitochondrial pathways it
-invests in most heavily. An astrocyte prioritizes fatty acid oxidation; a neuron
-invests heavily in the electron transport chain. These patterns can shift with aging.
+invests in most heavily, that reflects its metabolic priorities. These differences are encoded in 
+gene expression — specifically in which mitochondrial pathway genes a cell transcribes more or less of.
 
 The **mitoPPS** (mitochondrial pathway prioritization score) captures this specialization.
 Rather than asking "how much is this pathway expressed?", it asks: *"is this pathway
@@ -30,6 +23,9 @@ mass or activity — a cell that just happens to have more mitochondria overall 
 get artificially high scores for every pathway.
 
 The method comes from [Monzel & Picard (2025)](https://pmc.ncbi.nlm.nih.gov/articles/PMC11844627/).
+
+MitoCarta 3.0 is a curated database of 1,136 human mitochondrial genes organized into 149 functional 
+pathways across 7 broad categories. This gives us a vocabulary for describing mitotypes quantitatively.
 
 ---
 
@@ -65,40 +61,6 @@ plots and the interactive explorer.
 | Oligodendrocyte | OLIG | All 11 regions | 35–52 |
 | Vascular | VASC | ACC, IPP, M1, MB, dlPFC, lCb, mdTN | 11–32 |
 
-**Notes on coverage:**
-
-Most absences are **biologically expected** — basket cells and cerebellar neurons
-are concentrated in the cerebellum; midbrain neurons are only in the midbrain;
-medium spiny neurons (MSN) are striatal and only found in CN and NAc.
-
-Glutamatergic neurons (EXC) are absent from lCb and MB because those regions
-have their own specialized neuron types (BC/CER and MBN respectively). EXC is
-also absent from CN and NAc in this analysis — not because the cells aren't there,
-but because the cells are extremely sparse: the median animal has only ~10
-glutamatergic cells in CN (total 1,188 cells across all 53 animals), and only
-12 animals have ≥100 EXC cells in NAc. After applying the per-louvain filters
-(see Step 1), no individual louvain cluster in those regions has enough animals
-to run a regression.
-
-### Significant hits by cell type
-
-| Cell type | N significant (FDR < 0.05) |
-|---|---|
-| Cerebellar | 30 |
-| Glutamatergic | 20 |
-| Basket | 11 |
-| Astrocyte | 7 |
-| GABA | 3 |
-| MSN | 3 |
-| Midbrain | 2 |
-| Oligodendrocyte | 2 |
-| Microglia | 0 |
-| OPC | 0 |
-| Vascular | 0 |
-
-OPC having 0 hits despite being present in all 11 regions with good animal
-counts is a biological finding — OPC mitotypes appear stable with age.
-
 ---
 
 ## Repository structure
@@ -131,12 +93,6 @@ mamba create -n mito_env_mamba python=3.10 -y
 source activate mito_env_mamba
 pip install scanpy anndata pandas numpy scipy openpyxl xlrd statsmodels \
             seaborn matplotlib jupytext scikit-learn
-```
-
-To convert the `.py` notebook to Jupyter format:
-
-```bash
-jupytext --to notebook mitotyping_u01.py
 ```
 
 ---
@@ -211,8 +167,11 @@ mitoPPS(sample S, pathway P) =
 
 Intuitively: mitoPPS asks whether pathway P is expressed *more relative to all
 other pathways* in this sample than it typically is across all samples. A ratio
-above 1 means yes — this pathway is being prioritized. This cancels out any
-differences in overall mitochondrial activity between samples.
+above 1 means yes — this pathway is being prioritized. Think of it like a fold-change:
+1 = same as the reference average.
+2 = twice as prioritized as average.
+0.5 = half as prioritized as average
+This cancels out any differences in overall mitochondrial activity between samples.
 
 **Why 69 pathways and not all 149?**
 
@@ -325,48 +284,10 @@ Key columns:
 
 ---
 
-### Step 3 — Outlier QC
+### Visualization
 
-**Script:** `03_outlier_qc.py`
-
-**What it does:**
-
-For each (cell type × louvain × region) combination, computes the mean mitoPPS
-across all 69 pathways for each animal. Flags animals where this mean exceeds
-5× the within-combo median — these are cases where the mitoPPS normalization
-may have failed (e.g. if one pathway score is near zero, the ratio blows up).
-
-**Result:** 41 outlier animal × combo pairs found, mostly in Oligodendrocyte
-and Glutamatergic cell types, concentrated in IPP and ACC.
-
-**Key finding:** A sensitivity analysis removing all 41 pairs produced
-**0 significant hits lost** and **1 gained** (GABA louvain 16 ACC,
-mt-rRNA modifications). This confirms the primary findings are robust.
-
-**Decision:** We keep the raw data for the primary analysis. The sensitivity
-results are saved separately for the supplement.
-
-**Note:** The outlier flags are *not* applied to the regression — no samples
-are removed from `mitotyping_age_results_clean.csv`. The sensitivity results
-are in a separate file.
-
-**Output:** `results/mitotyping_age_results_sensitivity.csv`
-
-```
-Same structure as mitotyping_age_results_clean.csv
-Shape: 21,321 rows (138 fewer tests because a few combos lost enough animals
-       to fall below MIN_ANIMALS=10 after outlier removal)
-Significant hits: 79 (vs 78 in primary)
-```
-
----
-
-### Step 4 — Visualization
-
-**Script:** `04_visualization.py`
-
-Calls all functions in `mitotyping_plots.py` and saves figures to `figures/`.
-This is the single place where all plot calls live — if you want to regenerate
+**Script:** `mitotyping_plots.py`
+Saves figures to `figures/`. This is the single place where all plot calls live — if you want to regenerate
 specific figures or change parameters, edit this file.
 
 ---
@@ -472,15 +393,13 @@ mp.plot_mitotyping(results_df, mode='age', category='OXPHOS',
                    average_louvains=True, save=True)
 ```
 
-**Where the cell type loop lives** in `04_visualization.py`:
+**The cell type loop is** in `04_visualization.py`:
 
 ```python
 cell_types = sorted(combined_mitopps['cell_type'].unique())
 for ct in cell_types:
     mp.plot_mitotyping(combined_mitopps, cell_type=ct, per_animal=True, save=True)
 ```
-
-To add or exclude a cell type, edit `CELL_TYPES` in `mitotyping_analysis.py`.
 
 ---
 
