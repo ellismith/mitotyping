@@ -1,3 +1,59 @@
+"""
+mitotyping_plots.py
+===================
+All visualization functions for the U01 macaque brain aging mitotyping analysis.
+
+Loaded once on import:
+  - MitoCarta 3.0 pathway hierarchy (from MITOCARTA_PATH)
+  - pathway_to_L1 mapping dict
+  - cell_type_colors and region_colors palettes
+
+Key functions
+-------------
+plot_mitotyping()             Unified heatmap — mitoPPS values or age effects.
+                              Supports average/per-animal/per-louvain views,
+                              L1/L2/L3 pathway levels, clustering, vmax, save.
+
+summarize_mitotyping()        Direction + consistency summary from regression results.
+plot_direction()              Bar chart: n sig hits per cell type, split by direction.
+plot_consistency()            Heatmap: fraction of regions significant per pathway/CT.
+
+plot_pathway_rank()           Ranked pathway differences between two cell types (Fig 4A).
+plot_pathway_bivariate()      Scatter of two pathways across samples (Fig 4B/C).
+plot_radar()                  Radar chart of top pathways per cell type (Fig 4D).
+
+plot_mitopps_pca()            PCA of mitoPPS scores (Fig 5B-D).
+plot_mitopps_pca_trajectory() Per-animal PCA with age arrow (Fig 6C).
+plot_pca_loadings()           Bar chart of top pathway loadings per PC (Fig 5E).
+plot_pathway_bubbles()        Bubble plot of pathways x cell types (Fig 5F).
+
+plot_aging_pathways()         Top aging pathways heatmap + scatter vs age (Fig 6D/E).
+                              Heatmap colorscale centered at mitoPPS=1 (neutral point).
+
+generate_html_report()        Self-contained interactive HTML results table.
+
+Usage
+-----
+    import importlib
+    import mitotyping_plots as mp
+    importlib.reload(mp)                        # pick up edits without restarting
+
+    mp.plot_mitotyping(combined_mitopps)        # mitoPPS heatmap, all cell types
+    mp.plot_mitotyping(results_df, mode='age',  # age effects, louvains averaged
+                       average_louvains=True, save=True)
+    mp.plot_aging_pathways(results_df,          # top aging pathways for one CT
+                           combined_mitopps,
+                           cell_type='Astrocyte', save=True)
+
+All save=True calls write 300dpi PNGs to FIGURE_DIR with auto-generated filenames
+derived from the plot title.
+
+Paths (edit at top of file if needed)
+------
+    MITOCARTA_PATH  /scratch/easmit31/mitotyping/Human.MitoCarta3.0.xls
+    FIGURE_DIR      /scratch/easmit31/mitotyping/figures/
+"""
+
 import os
 import pandas as pd
 import numpy as np
@@ -714,8 +770,12 @@ def plot_aging_pathways(results_df, combined_mitopps, cell_type,
                    for a, age in zip(animal_means['animal_id'], animal_means['age'])]
     n_rows, n_cols = mat.shape
     fig, ax = plt.subplots(figsize=(max(10, n_cols*0.3), max(4, n_rows*0.4)))
-    vals = mat.values.astype(float)
-    im   = ax.imshow(vals, aspect='auto', cmap='viridis')
+    vals     = mat.values.astype(float)
+    # center colorscale at mitoPPS=1 (biological neutral point)
+    # so white=average, red=prioritized, blue=deprioritized
+    vspan    = np.nanpercentile(np.abs(vals[~np.isnan(vals)] - 1), 95)
+    norm     = TwoSlopeNorm(vmin=1-vspan, vcenter=1, vmax=1+vspan)
+    im       = ax.imshow(vals, aspect='auto', cmap='RdBu_r', norm=norm)
     ax.set_xticks(range(n_cols))
     ax.set_xticklabels(mat.columns, fontsize=8, rotation=45, ha='right')
     ax.set_yticks(range(n_rows))

@@ -111,6 +111,20 @@ l2_by_l1 = (mc.groupby('L1')['L2']
 
 # ── metadata ──────────────────────────────────────────────────────────────────
 cell_types = sorted(mito['cell_type'].unique().tolist())
+
+FULL_NAMES = {
+    'Astrocyte':      'Astrocyte (AST)',
+    'Basket':         'Basket cells (BC)',
+    'Cerebellar':     'Cerebellar neurons (CER)',
+    'Glutamatergic':  'Glutamatergic neurons (EXC)',
+    'GABA':           'GABAergic neurons (INH)',
+    'Midbrain':       'Midbrain neurons (MBN)',
+    'Microglia':      'Microglia (MGL)',
+    'MSN':            'Medium spiny neurons (MSN)',
+    'OPC':            'OPC',
+    'Oligodendrocyte':'Oligodendrocyte (OLIG)',
+    'Vascular':       'Vascular cells (VASC)',
+}
 regions    = sorted(mito['region'].unique().tolist())
 pathways   = pw_cols
 n_sig      = int((results['fdr_age'] < 0.05).sum())
@@ -148,7 +162,7 @@ subs = {
     '__N_PATHWAYS__':          str(len(pathways)),
     '__N_SIG__':               str(n_sig),
     '__N_ANIMALS__':           str(n_animals_total),
-    '__CT_OPTIONS__':          '\n'.join(f'<option value="{ct}">{ct}</option>' for ct in cell_types),
+    '__CT_OPTIONS__':          '\n'.join(f'<option value="{ct}">{FULL_NAMES.get(ct,ct)}</option>' for ct in cell_types),
     '__REG_OPTIONS__':         '\n'.join(f'<option value="{r}">{r}</option>' for r in regions),
     '__L1_OPTIONS__':          '\n'.join(f'<option value="{c}">{c}</option>' for c in l1_cats),
 }
