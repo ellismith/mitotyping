@@ -241,16 +241,15 @@ Key columns:
 
 **What it does:**
 
-For each (cell type × louvain × region) combination, fits an OLS (ordinary least
-squares) linear regression for each of the 69 pathways:
-
+For each (cell type × louvain × region) combination, fits a **linear mixed effects model** for each of the 69 pathways:
+ 
 ```
-mitoPPS ~ age + C(sex)
+mitoPPS ~ age + sex + (1|animal_id)
 ```
-
-`C(sex)` treats sex as a categorical covariate — it controls for sex differences
-in mitoPPS without modeling them explicitly. The key output is `beta_age`: how much
-the mitoPPS of that pathway changes per year of age, after accounting for sex.
+ 
+The `(1|animal_id)` term is a **random effect for animal** — it accounts for the fact that multiple pseudobulk samples can come from the same animal (different louvains and regions), so those samples aren't fully independent. This is more appropriate than a simple linear regression which assumes all rows are independent.
+ 
+The key output is `beta_age`: how much the mitoPPS of that pathway changes per year of age, after accounting for sex and the within-animal correlation structure.
 
 **Multiple testing correction:**
 BH-FDR (Benjamini-Hochberg false discovery rate) is applied *within* each
