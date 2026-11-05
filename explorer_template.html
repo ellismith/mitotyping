@@ -190,7 +190,7 @@ canvas{display:block}
       <canvas id="hm-cols"></canvas>
     </div>
     <!-- scrollable body with sticky row labels -->
-    <div style="flex:1;overflow:auto;min-height:0" id="hm-scroll">
+    <div style="flex:1;overflow:auto;min-height:0;display:flex" id="hm-scroll">
       <canvas id="hm-rows" style="flex-shrink:0;position:sticky;left:0;z-index:4;background:white"></canvas>
       <canvas id="hm-cells"></canvas>
     </div>
@@ -328,9 +328,12 @@ canvas{display:block}
 // ── injected data ─────────────────────────────────────────────────────────────
 const MITOPPS_AVG    = __MITOPPS_AVG_JSON__;
 const MITOPPS_ANIMAL = __MITOPPS_ANIMAL_JSON__;
+const MITOPPS_ANIMAL_REG = __MITOPPS_ANIMAL_REG_JSON__;
 const MITOPPS_LOUVAIN= __MITOPPS_LOUVAIN_JSON__;
 const ANIMAL_ORDER   = __ANIMAL_ORDER_JSON__;
+const ANIMAL_ORDER_REG = __ANIMAL_ORDER_REG_JSON__;
 const ANIMAL_AGES    = __ANIMAL_AGES_JSON__;
+const ANIMAL_AGES_REG = __ANIMAL_AGES_REG_JSON__;
 const LOUVAIN_ORDER  = __LOUVAIN_ORDER_JSON__;
 const AGE            = __AGE_JSON__;
 const N_ANIM         = __N_ANIM_JSON__;
@@ -342,6 +345,7 @@ const REGS           = __REG_JSON__;
 const PW_L3          = __PW_JSON__;
 const PW_L1          = __L1_CATS_JSON__;
 const PW_L2          = __PW_L2_JSON__;
+const PW_DESC         = {};
 const SCRIPT_PATH    = "__SCRIPT_PATH__";
 const RESULTS_PATH   = "__RESULTS_PATH__";
 const FIGURES_PATH   = "__FIGURES_PATH__";
@@ -362,13 +366,14 @@ document.querySelectorAll('.tab').forEach(t => {
 const S = {
   mode:'mitopps', view:'avg', cols:'celltype', level:'L3', sigonly:'true',
   h5ad:'all', filterReg:'', filterL1:'', filterL2:'', allRegView:'avg',
-  fdr:0.05, vmax:'auto', fs:11, cs:30, cmap:'viridis', showvals:'false',
+  fdr:0.05, vmax:'auto', fs:14, cs:34, cmap:'viridis', showvals:'false',
   agCT: CT_ALL[0], agReg:'', agFdr:0.05, agTopN:10, agCs:22, agFs:9, agScatter:'true',
   smFdr:0.05, smAllCT:'true', smH:30, smMinFrac:0, smCs:24,
 };
 
 // ── colormap ──────────────────────────────────────────────────────────────────
 function cfn(t, cm) {
+  if(!Number.isFinite(t)) t=0.5; // defensive: never let a stray NaN/Inf crash rendering
   t = Math.max(0, Math.min(1, t));
   if (cm==='viridis'){const s=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];const i=Math.min(Math.floor(t*4),3);const f=t*4-i;const a=s[i],b=s[i+1];return`rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`;}
   if (cm==='plasma'){const s=[[13,8,135],[126,3,168],[204,71,120],[248,149,64],[240,249,33]];const i=Math.min(Math.floor(t*4),3);const f=t*4-i;const a=s[i],b=s[i+1];return`rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`;}
@@ -472,8 +477,8 @@ function getColsAndVals(pw){
       if(col.includes('|')){ctK=col.split('|')[0];regK=col.split('|')[1];}
       else{ctK=S.cols==='celltype'?col:row;regK=S.cols==='celltype'?row:col;}
       if(!activeCTs.includes(ctK))return;
-      if(S.mode==='mitopps'){const v=MITOPPS_AVG[ctK]?.[regK]?.[pw];if(v!==undefined){sum+=v;cnt++;}}
-      else{const d=AGE[ctK]?.[regK]?.[pw];if(d){sum+=d.b;cnt++;if(d.f<mf)mf=d.f;}}
+      if(S.mode==='mitopps'){const v=MITOPPS_AVG[ctK]?.[regK]?.[pw];if(v!==undefined&&Number.isFinite(v)){sum+=v;cnt++;}}
+      else{const d=AGE[ctK]?.[regK]?.[pw];if(d&&Number.isFinite(d.b)){sum+=d.b;cnt++;if(Number.isFinite(d.f)&&d.f<mf)mf=d.f;}}
     });
     vals.push(cnt?sum/cnt:null);fdrs.push(mf);
   });
@@ -573,6 +578,8 @@ function drawHeatmap(){
   // ── col labels canvas ───────────────────────────────────────────────────────
   canvasCols.width=labelW+cellsW;
   canvasCols.height=labelH;
+  canvasCols.style.width=canvasCols.width+'px';
+  canvasCols.style.height=canvasCols.height+'px';
   ctxC.clearRect(0,0,canvasCols.width,canvasCols.height);
   allCols.forEach((col,j)=>{
     const lbl=colLabel(col);
@@ -584,6 +591,8 @@ function drawHeatmap(){
   // ── row labels canvas ───────────────────────────────────────────────────────
   canvasRows.width=labelW;
   canvasRows.height=cellsH;
+  canvasRows.style.width=canvasRows.width+'px';
+  canvasRows.style.height=canvasRows.height+'px';
   ctxR.clearRect(0,0,labelW,cellsH);
   labelsC.forEach((pw,i)=>{
     ctxR.fillStyle='#2c2c2a';ctxR.font=`${fs}px sans-serif`;ctxR.textAlign='right';
@@ -594,12 +603,15 @@ function drawHeatmap(){
   // ── cells canvas ────────────────────────────────────────────────────────────
   canvasCells.width=cellsW;
   canvasCells.height=cellsH;
+  canvasCells.style.width=canvasCells.width+'px';
+  canvasCells.style.height=canvasCells.height+'px';
   ctxK.clearRect(0,0,cellsW,cellsH);
   labelsC.forEach((pw,i)=>{
     allCols.forEach((col,j)=>{
-      const v=matC[i][j],sig=sigsC[i][j];
+      const vRaw=matC[i][j],sig=sigsC[i][j];
+      const v=(vRaw===null||Number.isNaN(vRaw))?null:vRaw;
       const t=v===null?0.5:(v-vlo)/(vhi-vlo||1);
-      ctxK.fillStyle=v===null?'#e0ddd8':cfn(t,S.cmap);
+      ctxK.fillStyle=v===null?'#b0aca2':cfn(t,S.cmap);
       ctxK.fillRect(j*cs,i*cs,cs-1,cs-1);
       if(S.mode==='age'&&sig&&cs>=14){
         ctxK.fillStyle='rgba(0,0,0,0.85)';ctxK.beginPath();
@@ -617,9 +629,11 @@ function drawHeatmap(){
 
   const nSig=sigsC.flat().filter(Boolean).length;
   const nTests=nRows*nCols;
+  const nWithData=matC.flat().filter(v=>v!==null).length;
   document.getElementById('hm-stats').innerHTML=`
     <div class='stat'><b>${nRows}</b>pathways (${S.level})</div>
     <div class='stat'><b>${nCols}</b>columns</div>
+    <div class='stat'><b>${nWithData}/${nTests}</b>cells with data</div>
     ${S.mode==='age'?`<div class='stat'><b>${nSig}</b>sig / ${nTests}</div>`:''}`;
 
   const leg=document.getElementById('hm-legend');
@@ -698,7 +712,7 @@ function drawAging(){
   const maxCW=animals.reduce((m,a)=>Math.max(m,ctx.measureText(`${a} (${(ANIMAL_AGES[ct]||{})[a]?.toFixed(1)}y)`).width),0);
   const labelH=Math.min(150,Math.max(60,maxCW+12));
   const W=labelW+animals.length*cs,H=titleH+labelH+pwList.length*cs+10;
-  canvas.width=W;canvas.height=H;ctx.clearRect(0,0,W,H);
+  canvas.width=W;canvas.height=H;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.clearRect(0,0,W,H);
 
   const title=`${ct} — top aging pathways${S.agReg?' | '+S.agReg:''} | FDR<${S.agFdr.toFixed(2)}`;
   ctx.fillStyle='#2c2c2a';ctx.font=`500 ${fs+1}px sans-serif`;ctx.textAlign='left';
@@ -727,9 +741,10 @@ function drawAging(){
     ctx.font=`${fs}px sans-serif`;ctx.textAlign='right';
     ctx.fillText(label,labelW-5,titleH+labelH+i*cs+cs*0.68);
     animals.forEach((a,j)=>{
-      const v=mat[i][j];
+      const vRaw=mat[i][j];
+      const v=(vRaw===null||Number.isNaN(vRaw))?null:vRaw;
       const t=v===null?0.5:(v-vlo)/(vhi-vlo||1);
-      ctx.fillStyle=v===null?'#e0ddd8':cfn(t,'coolwarm');
+      ctx.fillStyle=v===null?'#b0aca2':cfn(t,'coolwarm');
       ctx.fillRect(labelW+j*cs,titleH+labelH+i*cs,cs-1,cs-1);
     });
   });
@@ -764,6 +779,7 @@ function drawAgingScatter(pws,res,ct){
   const canvas=document.getElementById('ag-scatter');
   const ctx=canvas.getContext('2d');
   canvas.width=cols*pw+pad;canvas.height=rows*ph+pad;
+  canvas.style.width=canvas.width+'px';canvas.style.height=canvas.height+'px';
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   pws.forEach((pw_,k)=>{
@@ -855,7 +871,7 @@ function drawSummary(){
   const chartH=padT+sorted.length*barH+padB;
   const dc=document.getElementById('sm-dir');
   const dctx=dc.getContext('2d');
-  dc.width=chartW;dc.height=chartH;dctx.clearRect(0,0,chartW,chartH);
+  dc.width=chartW;dc.height=chartH;dc.style.width=chartW+'px';dc.style.height=chartH+'px';dctx.clearRect(0,0,chartW,chartH);
 
   const scale=(chartW-padL-padR)/2/maxN;
   const midX=padL+(chartW-padL-padR)/2;
@@ -984,20 +1000,62 @@ function abbr(ct){ return CT_ABBR[ct]||ct; }
 const hmCanvas=document.getElementById('hm-cells');
 const tip=document.getElementById('tooltip');
 
-function drawTipScatter(pw, ct){
+// Resolve which cell type AND which region a hovered heatmap column actually
+// represents, given the current view/columns mode. This matters because the
+// per-animal scatter data is most granular at the cell-type x region level
+// (MITOPPS_ANIMAL_REG); pooling across regions (or across cell types) when we
+// don't need to is what produced "way more points than n animals".
+function resolveCtReg(col){
+  if(S.view==='louvain'){
+    // col looks like "12,ACC" — louvain cluster, region
+    const parts=col.split(',');
+    return {ct:S.h5ad, reg:parts.length>1?parts[1]:null};
+  }
+  if(S.view==='animal'){
+    // per-animal view is itself averaged across regions for this cell type
+    return {ct:S.h5ad, reg:null};
+  }
+  if(col.includes('|')){
+    // "cell type x region separate" column mode
+    const [ct,reg]=col.split('|');
+    return {ct,reg};
+  }
+  if(S.cols==='celltype'){
+    // col is a cell type; region is whatever single region is filtered (if any)
+    return {ct:col, reg:S.filterReg||null};
+  }
+  // col is a region; cell type is whatever single cell type is filtered (if any)
+  return {ct:(S.h5ad!=='all'?S.h5ad:null), reg:col};
+}
+
+function drawTipScatter(pw, ct, reg){
   const sc=document.getElementById('tip-scatter');
   const ctx=sc.getContext('2d');
   ctx.clearRect(0,0,sc.width,sc.height);
-  const cts=CT_ALL.includes(ct)?[ct]:CT_ALL;
   let points=[];
-  cts.forEach(c=>{
-    const animals=ANIMAL_ORDER[c]||[];
+  const regKey = ct && reg ? `${ct}|${reg}` : null;
+  if(regKey && ANIMAL_ORDER_REG[regKey]){
+    // most specific: this exact cell type x region combo
+    const animals=ANIMAL_ORDER_REG[regKey]||[];
     animals.forEach(a=>{
-      const age=(ANIMAL_AGES[c]||{})[a];
-      const val=(MITOPPS_ANIMAL[c]||{})[a]?.[pw];
+      const age=(ANIMAL_AGES_REG[regKey]||{})[a];
+      const val=(MITOPPS_ANIMAL_REG[regKey]||{})[a]?.[pw];
       if(age!==undefined&&val!==undefined) points.push({x:age,y:val});
     });
-  });
+  } else {
+    // fall back to celltype-only (averaged across regions) — used for the
+    // "avg, no region filter" and "per animal" views, which are themselves
+    // region-agnostic, and for the true "all cell types" case
+    const cts=ct&&CT_ALL.includes(ct)?[ct]:CT_ALL;
+    cts.forEach(c=>{
+      const animals=ANIMAL_ORDER[c]||[];
+      animals.forEach(a=>{
+        const age=(ANIMAL_AGES[c]||{})[a];
+        const val=(MITOPPS_ANIMAL[c]||{})[a]?.[pw];
+        if(age!==undefined&&val!==undefined) points.push({x:age,y:val});
+      });
+    });
+  }
   if(points.length<3){
     ctx.fillStyle='#aaa';ctx.font='10px sans-serif';ctx.textAlign='center';
     ctx.fillText('no per-animal data',sc.width/2,sc.height/2);return;
@@ -1020,6 +1078,8 @@ function drawTipScatter(pw, ct){
   ctx.fillText('age',pad.l+iw/2,sc.height-2);
   ctx.save();ctx.translate(10,pad.t+ih/2);ctx.rotate(-Math.PI/2);
   ctx.textAlign='center';ctx.fillText('mitoPPS',0,0);ctx.restore();
+  ctx.fillStyle='#aaa';ctx.font='8px sans-serif';ctx.textAlign='right';
+  ctx.fillText('n='+points.length,sc.width-pad.r,pad.t-6);
   // regression line
   const n=points.length;
   const xm=points.reduce((s,p)=>s+p.x,0)/n,ym=points.reduce((s,p)=>s+p.y,0)/n;
@@ -1046,11 +1106,11 @@ hmCanvas.addEventListener('mousemove',e=>{
   if(i2>=0&&i2<rows.length&&j>=0&&j<cols.length){
     const v=mat[i2]?.[j],sig=sigs[i2]?.[j],pw=rows[i2],col=cols[j];
     const colLabel=col.includes('|')?abbr(col.split('|')[0])+', '+col.split('|')[1]:abbr(col);
-    const ct=col.includes('|')?col.split('|')[0]:(S.cols==='celltype'?col:S.h5ad);
+    const {ct,reg}=resolveCtReg(col);
     let html=`<b>${pw}</b><br><span style='color:#888;font-size:11px'>${getL1(pw)}${getL2(pw)?' › '+getL2(pw):''}</span><br>${colLabel}<br>`;
     html+=S.mode==='mitopps'?`mitoPPS: <b>${v!==null?v.toFixed(3):'n/a'}</b>`:`β: <b>${v!==null?v.toFixed(4):'n/a'}</b>${sig?' <span style="color:#d73027">✓ sig</span>':''}`;
     document.getElementById('tip-text').innerHTML=html;
-    drawTipScatter(pw,ct);
+    drawTipScatter(pw,ct,reg);
     tip.style.display='block';
     const tw=280,th=240;
     const tx=e.clientX+16,ty=e.clientY-10;
@@ -1060,18 +1120,32 @@ hmCanvas.addEventListener('mousemove',e=>{
 });
 hmCanvas.addEventListener('mouseleave',()=>{tip.style.display='none';});
 
-// ── controls ──────────────────────────────────────────────────────────────────
-// auto-switch colormap when mode changes
-function autoSetCmap(){
-  if(S.mode==='mitopps' && S.cmap==='coolwarm') {
-    S.cmap='viridis';
-    document.getElementById('cmap-sel').value='viridis';
-  } else if(S.mode==='age' && S.cmap==='viridis') {
-    S.cmap='coolwarm';
-    document.getElementById('cmap-sel').value='coolwarm';
+const hmRowsCanvas=document.getElementById('hm-rows');
+hmRowsCanvas.addEventListener('mousemove',e=>{
+  if(!lastMat)return;
+  const{rows,cs}=lastMat;
+  const r=hmRowsCanvas.getBoundingClientRect();
+  const y=e.clientY-r.top;
+  const i=Math.floor(y/cs);
+  if(i>=0&&i<rows.length){
+    const pw=rows[i];
+    const desc=PW_DESC[pw];
+    if(desc){
+      document.getElementById('tip-text').innerHTML=`<b>${pw}</b><br><span style='color:#666;font-size:11px'>${desc}</span>`;
+      document.getElementById('tip-scatter').style.display='none';
+      tip.style.display='block';
+      const tw=280,th=90;
+      const tx=e.clientX+16,ty=e.clientY-10;
+      tip.style.left=(tx+tw>window.innerWidth?e.clientX-tw-16:tx)+'px';
+      tip.style.top=(ty+th>window.innerHeight?e.clientY-th:ty)+'px';
+      return;
+    }
   }
-}
+  tip.style.display='none';
+});
+hmRowsCanvas.addEventListener('mouseleave',()=>{tip.style.display='none';document.getElementById('tip-scatter').style.display='';});
 
+// ── controls ──────────────────────────────────────────────────────────────────
 // auto-switch colormap when mode changes
 function autoSetCmap(){
   if(S.mode==='mitopps' && S.cmap==='coolwarm') {
@@ -1091,8 +1165,9 @@ document.querySelectorAll('.tog[data-k]').forEach(b=>{
     b.classList.add('on');
     if(k==='mode') autoSetCmap();
     drawHeatmap();
-
-// sync col label scroll with cell scroll
+  });
+});
+// sync col label scroll with cell scroll (registered once, not per-click)
 const hmScroll = document.getElementById('hm-scroll');
 const hmColsWrap = document.getElementById('hm-cols-wrap');
 if(hmScroll && hmColsWrap){
@@ -1100,8 +1175,7 @@ if(hmScroll && hmColsWrap){
     hmColsWrap.scrollLeft = hmScroll.scrollLeft;
   });
 }
-  });
-});
+
 document.querySelectorAll('.tog[data-k2]').forEach(b=>{
   b.addEventListener('click',()=>{
     const k=b.dataset.k2,v=b.dataset.v;S[k]=v;
